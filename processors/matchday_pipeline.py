@@ -195,17 +195,17 @@ class MatchdayPipeline:
         target = max(1, settings.MATCHDAY_DAILY_PUSH_TARGET)
         per_match_limit = max(1, settings.MATCHDAY_MAX_PUSHES_PER_MATCH)
         official_opportunities = []
-        social_opportunities = []
         raw_items = (trending or {}).get("raw_items", [])
         for match in matches:
             official_opportunities.append(self._official_opportunity(match))
-            per_match_social = self._dedupe_opportunities(self._x_trending_opportunities(match, raw_items))
-            per_match_social.sort(key=self._opportunity_rank, reverse=True)
-            social_opportunities.extend(per_match_social[: max(0, per_match_limit - 1)])
 
         official_opportunities = self._dedupe_opportunities(official_opportunities)
-        social_opportunities = self._dedupe_opportunities(social_opportunities)
-        social_opportunities.sort(key=self._opportunity_rank, reverse=True)
+        social_opportunities = self._collect_unique_social_opportunities(
+            matches=matches,
+            raw_items=raw_items,
+            per_match_limit=per_match_limit,
+            target=target,
+        )
 
         opportunities = []
         # Keep one official anchor per match first, then fill the day with the strongest social angles.
@@ -221,6 +221,47 @@ class MatchdayPipeline:
         opportunities = self._dedupe_opportunities(opportunities)[:target]
         print(f"  OK 构建 {len(opportunities)} 个 Push 触发机会（每日目标 {target} 条）")
         return opportunities
+
+    def _collect_unique_social_opportunities(
+        self,
+        matches: list[dict],
+        raw_items: list[dict],
+        per_match_limit: int,
+        target: int,
+    ) -> list[dict]:
+        """Assign each X item to at most one strongly related match."""
+        social_opportunities = []
+        per_match_counts = {self._match_display(match): 0 for match in matches}
+        max_social = max(0, target - len(matches))
+
+        for item in sorted(raw_items, key=self._engagement_score, reverse=True):
+            best_match = None
+            best_score = 0
+            for match in matches:
+                score = self._match_relevance_score(item, match)
+                if score > best_score:
+                    best_score = score
+                    best_match = match
+
+            if not best_match or best_score <= 0:
+                continue
+
+            display = self._match_display(best_match)
+            if per_match_counts[display] >= max(0, per_match_limit - 1):
+                continue
+
+            opportunities = self._x_trending_opportunities(best_match, [item], require_relevance=True)
+            if not opportunities:
+                continue
+
+            social_opportunities.extend(opportunities)
+            per_match_counts[display] += len(opportunities)
+            if len(social_opportunities) >= max_social:
+                break
+
+        social_opportunities = self._dedupe_opportunities(social_opportunities)
+        social_opportunities.sort(key=self._opportunity_rank, reverse=True)
+        return social_opportunities
 
     def _official_opportunity(self, match: dict) -> dict:
         status = match.get("status", "")
@@ -263,14 +304,15 @@ class MatchdayPipeline:
             "match": match,
         }
 
-    def _x_trending_opportunities(self, match: dict, raw_items: list[dict]) -> list[dict]:
+    def _x_trending_opportunities(self, match: dict, raw_items: list[dict], require_relevance: bool = False) -> list[dict]:
         tokens = [token.lower() for token in self._team_tokens([match])]
         matched = []
         for item in raw_items:
             text = json.dumps(item, ensure_ascii=False).lower()
-            if any(token and token.lower() in text for token in tokens):
+            relevance_score = self._match_relevance_score(item, match)
+            if any(token and token.lower() in text for token in tokens) or relevance_score > 0:
                 matched.append(item)
-        if not matched:
+        if not matched and not require_relevance:
             matched = raw_items
 
         opportunities = []
@@ -279,6 +321,9 @@ class MatchdayPipeline:
             topic = content[:120]
             engagement = self._engagement_score(item)
             topic_hook = self._topic_hook_from_text(content)
+            relevance_score = self._match_relevance_score(item, match)
+            if require_relevance and relevance_score <= 0:
+                continue
             opportunities.append({
                 "type": "x_trending",
                 "title": topic_hook,
@@ -289,10 +334,51 @@ class MatchdayPipeline:
                 "source": "x_sports_trending",
                 "related_topic": topic,
                 "engagement_score": engagement,
+                "match_relevance_score": relevance_score,
+                "tweet_url": item.get("tweet_url", ""),
                 "priority": "high" if engagement >= 10000 else "normal",
                 "match": match,
             })
         return opportunities
+
+    def _match_relevance_score(self, item: dict, match: dict) -> int:
+        text = json.dumps(item, ensure_ascii=False).lower()
+        home = match.get("team_home", {})
+        away = match.get("team_away", {})
+        home_score = self._score_team_tokens(text, self._expanded_team_tokens(home))
+        away_score = self._score_team_tokens(text, self._expanded_team_tokens(away))
+        if home_score and away_score:
+            return home_score + away_score + 2
+        return home_score + away_score
+
+    def _score_team_tokens(self, text: str, tokens: list[str]) -> int:
+        score = 0
+        for token in tokens:
+            if token and token in text:
+                score = max(score, 3 if " " in token or len(token) > 3 else 2)
+        return score
+
+    def _expanded_team_tokens(self, team: dict) -> list[str]:
+        raw_tokens = [team.get("name", ""), team.get("code", ""), team.get("name_en", "")]
+        alias_map = {
+            "刚果民主共和国": ["congo dr", "dr congo", "congo", "democratic republic of the congo", "drc"],
+            "刚果（金）": ["congo dr", "dr congo", "congo", "democratic republic of the congo", "drc"],
+            "葡萄牙": ["portugal", "por"],
+            "英格兰": ["england", "eng"],
+            "克罗地亚": ["croatia", "cro"],
+            "加纳": ["ghana", "gha"],
+            "巴拿马": ["panama", "pan"],
+            "乌兹别克斯坦": ["uzbekistan", "uzb"],
+            "哥伦比亚": ["colombia", "col"],
+        }
+
+        raw_tokens.extend(alias_map.get(team.get("name", ""), []))
+        tokens = []
+        for token in raw_tokens:
+            token = str(token or "").strip().lower()
+            if token and token not in tokens:
+                tokens.append(token)
+        return tokens
 
     def _topic_hook_from_text(self, text: str) -> str:
         lowered = text.lower()
@@ -349,7 +435,7 @@ class MatchdayPipeline:
         for item in opportunities:
             key = (
                 item.get("type"),
-                item.get("hook") or item.get("title", ""),
+                item.get("tweet_url") or item.get("hook") or item.get("title", ""),
                 self._match_display(item["match"]),
             )
             if key in seen:
