@@ -51,7 +51,7 @@ class BitableExporter:
         "Push Desc (PT-BR)": "Push Desc (PT-BR)",
         # AIGC & Hashtag
         "AIGC Prompt JSON": "AIGC Prompt JSON",
-        "Hashtag建议": "Hashtag建议",
+        "Hashtag 建议": "Hashtag 建议",
         # 审核
         "审核状态": "审核状态",
         "优先级": "优先级",
@@ -128,8 +128,8 @@ class BitableExporter:
             "场景类型": scenario,
             "适用对象/热点": en.get("applicable_object", ""),
 
-            # 事件类型 (multi-select)
-            "事件类型": [self.EVENT_TYPE_MAP.get(event.get("type", ""), event.get("type", ""))],
+            # 事件类型 (select)
+            "事件类型": self.EVENT_TYPE_MAP.get(event.get("type", ""), event.get("type", "")),
 
             # 英文内容
             "Push Title (EN)": en.get("push_title", ""),
@@ -137,7 +137,7 @@ class BitableExporter:
 
             # AIGC Prompt & Hashtags
             "AIGC Prompt JSON": json.dumps(aigc_prompts, ensure_ascii=False, indent=2),
-            "Hashtag建议": en.get("hashtags", ""),
+            "Hashtag 建议": en.get("hashtags", ""),
 
             # 审核
             "审核状态": "🟡待审核",
@@ -168,11 +168,12 @@ class BitableExporter:
         if teams:
             fields["关联国家"] = ", ".join(teams)
 
-        # 情绪标签 (从场景推断)
+        # 情绪标签 (从场景推断, select 单选用字符串)
         from processors.scenario_classifier import SCENARIOS
         scenario_def = SCENARIOS.get(scenario, {})
         if scenario_def:
-            fields["情绪标签"] = scenario_def.get("emotion", [])
+            emotions = scenario_def.get("emotion", [])
+            fields["情绪标签"] = ", ".join(emotions) if isinstance(emotions, list) else emotions
 
         return fields
 
@@ -181,28 +182,50 @@ class BitableExporter:
         通过 lark-cli 创建 Bitable 记录
         使用 subprocess 调用 lark-cli，因为它已经配置好了认证
         """
+        # lark-cli 完整路径（Python subprocess 可能找不到）
+        lark_cli = r"C:\Users\AS\.workbuddy\binaries\node\versions\22.12.0\lark-cli.cmd"
+
+        # 写入临时文件避免命令行长度限制（lark-cli 要求相对路径）
+        import tempfile, os
+        tmp_name = f"_bitable_tmp_{os.getpid()}.json"
+        tmp_path = os.path.join(os.getcwd(), tmp_name)
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(fields, f, ensure_ascii=False)
+
         cmd = [
-            "lark-cli", "base", "+record-batch-create",
+            lark_cli, "base", "+record-upsert",
             "--base-token", self.base_token,
             "--table-id", self.table_id,
-            "--json", json.dumps({"fields": fields}, ensure_ascii=False),
+            "--json", f"@{tmp_name}",
             "--as", "user",
         ]
 
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=30,
-                encoding="utf-8",
+                cmd, capture_output=True, text=True, timeout=60,
+                encoding="utf-8", errors="replace", shell=True,
             )
 
             if result.returncode == 0:
                 output = json.loads(result.stdout)
                 if output.get("ok"):
-                    records = output.get("data", {}).get("record_id_list", [])
-                    return records[0] if records else None
+                    record = output.get("data", {}).get("record", {})
+                    # upsert 返回 record_id_list
+                    ids = record.get("record_id_list", [])
+                    if ids:
+                        return ids[0]
+                    # 兼容单条 record_id
+                    rid = record.get("record_id", "")
+                    return rid if rid else None
 
             # 打印错误信息
-            print(f"    ✗ lark-cli error: {result.stderr or result.stdout}")
+            stderr = result.stderr.strip() if result.stderr else ""
+            stdout = result.stdout.strip() if result.stdout else ""
+            print(f"    ✗ lark-cli error (code={result.returncode}):")
+            if stderr:
+                print(f"      stderr: {stderr[:300]}")
+            if stdout:
+                print(f"      stdout: {stdout[:300]}")
             return None
 
         except subprocess.TimeoutExpired:
@@ -211,6 +234,12 @@ class BitableExporter:
         except Exception as e:
             print(f"    ✗ 创建记录失败: {e}")
             return None
+        finally:
+            # 清理临时文件
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
     def notify_feishu_group(self, message: str):
         """通过飞书 Webhook 通知运营群"""

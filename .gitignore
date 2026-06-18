@@ -18,6 +18,8 @@ build/
 outputs/
 data/x_trending_*.json
 data/player_memes_local.json
+_debug_fields.json
+_bitable_tmp_*.json
 
 # === IDE ===
 .vscode/
