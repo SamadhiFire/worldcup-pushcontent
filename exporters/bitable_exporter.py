@@ -153,9 +153,12 @@ class BitableExporter:
         scenario = content.get("scenario", "")
 
         # 合并所有语言的 AIGC Prompt
-        aigc_prompts = {"EN": en.get("aigc_prompt", {})}
+        aigc_prompts = {}
+        if en.get("aigc_prompt"):
+            aigc_prompts["EN"] = en.get("aigc_prompt", {})
         for lang, lang_content in translations.items():
-            aigc_prompts[lang] = lang_content.get("aigc_prompt", {})
+            if lang_content.get("aigc_prompt"):
+                aigc_prompts[lang] = lang_content.get("aigc_prompt", {})
 
         fields = {
             # 赛事信息

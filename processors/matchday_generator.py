@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from processors.content_generator import ContentGenerator
+from processors.content_generator import ContentGenerator, SCENARIO_STYLE_MAP
 
 
 LANGUAGE_CODES = ["EN", "ZH", "ES", "MS", "FIL", "PT-PT", "PT-BR"]
@@ -162,6 +162,14 @@ Use this JSON schema and return JSON only:
     def _normalize_payload(self, payload: dict, match: dict, opportunity: dict) -> dict:
         languages = payload.get("languages", {})
         en = self._normalize_language(languages.get("EN", {}), "EN", match)
+        en_aigc_prompt = en.get("aigc_prompt") or self._build_en_aigc_prompt(
+            match=match,
+            opportunity=opportunity,
+            scenario=payload.get("scenario") or opportunity.get("scenario_hint") or "社交派对",
+            en_title=en["push_title"],
+            en_body=en["push_description"],
+            en_hashtags=en["hashtags"],
+        )
         translations = {
             code: self._normalize_language(languages.get(code, {}), code, match)
             for code in LANGUAGE_CODES
@@ -179,7 +187,7 @@ Use this JSON schema and return JSON only:
                 "hashtags": en["hashtags"],
                 "emotion_tags": emotion_tags,
                 "applicable_object": payload.get("applicable_object", ""),
-                "aigc_prompt": {},
+                "aigc_prompt": en_aigc_prompt,
             },
             "translations": translations,
         }
@@ -334,6 +342,83 @@ Use this JSON schema and return JSON only:
         item["tags"] = "#VansoWorldCup26 #MyAnthem2026 #WorldCup2026 #Matchday #AIMusic"
         return item
 
+    def _build_en_aigc_prompt(
+        self,
+        match: dict,
+        opportunity: dict,
+        scenario: str,
+        en_title: str,
+        en_body: str,
+        en_hashtags: str,
+    ) -> dict[str, Any]:
+        style = SCENARIO_STYLE_MAP.get(scenario, SCENARIO_STYLE_MAP["社交派对"])
+        hook = opportunity.get("hook") or opportunity.get("title") or self._match_display(match)
+        display = self._match_display(match)
+        event_type = opportunity.get("type", "matchday")
+        score = self._score_display(match)
+        title_hint = en_title.replace(":", " -").strip()[:60]
+        hashtags = [tag for tag in en_hashtags.split() if tag.startswith("#")][:6]
+
+        return {
+            "title_hint": title_hint or f"{display} Anthem",
+            "genre": {
+                "primary": style["genre_primary"],
+                "secondary": style["genre_options"][0],
+                "fusion": style["genre_options"][1] if len(style["genre_options"]) > 1 else None,
+            },
+            "mood": {
+                "primary": style["mood"].split(",")[0].strip(),
+                "secondary": style["mood"].split(",")[1].strip() if "," in style["mood"] else style["mood"],
+                "intensity": "high" if opportunity.get("priority") == "high" else "medium",
+            },
+            "tempo": {
+                "bpm_range": style["bpm_range"],
+                "feel": f"{hook} with {style['social_focus'].lower()}",
+                "rhythm_pattern": "chant-ready pulse with a fast, repeatable hook",
+            },
+            "instrumentation": {
+                "core": [style["genre_options"][0], "stadium drums"],
+                "accent": ["crowd chants", "riser synths"],
+                "exclude": ["soft ambient pads", "slow cinematic intro"],
+            },
+            "vocal": {
+                "style": "anthemic lead with crowd response",
+                "gender": "any",
+                "language": "en",
+                "tone": style["vocal_tone"],
+                "reference": "festival football anthem energy",
+            },
+            "lyrics": {
+                "theme": f"Turn {hook} in {display} into a fan anthem that matches the push copy.",
+                "key_imagery": [
+                    hook,
+                    f"scoreline pressure {score or 'before kickoff tension'}",
+                    "group chat, feed, and crowd noise colliding",
+                ],
+                "tone": en_body,
+                "structure": "cold open hook, chant-heavy chorus, one sharp verse, repeatable outro",
+                "must_include": [
+                    display,
+                    "a line that sounds native to football fans",
+                    "a chantable phrase built from the trigger angle",
+                ],
+                "must_avoid": ["profanity", "slurs", "direct harassment", "unsupported factual claims"],
+            },
+            "production": {
+                "length_seconds": [60, 90],
+                "energy_curve": "start hot, lift at the chorus by 15 seconds, finish with one replayable chant",
+                "mix_style": "clean, loud, mobile-first, punchy low end",
+                "hook_strength": "high",
+            },
+            "social_optimization": {
+                "tiktok_friendly": True,
+                "meme_potential": "high",
+                "duet_friendly": True,
+                "trending_audio_style": event_type in {"x_trending", "matchday_live"},
+                "reference_hashtags": hashtags,
+            },
+        }
+
     def _pick_variant(self, seed: str, size: int) -> int:
         return sum(ord(ch) for ch in seed) % size
 
@@ -455,3 +540,10 @@ Use this JSON schema and return JSON only:
         left = home.get("code") or home.get("name") or "TBD"
         right = away.get("code") or away.get("name") or "TBD"
         return f"{left} vs {right}"
+
+    def _score_display(self, match: dict) -> str:
+        home = match.get("team_home", {})
+        away = match.get("team_away", {})
+        if home.get("score") is None or away.get("score") is None:
+            return ""
+        return f"{home.get('score')}-{away.get('score')}"
