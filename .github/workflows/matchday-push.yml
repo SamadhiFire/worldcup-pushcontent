@@ -36,7 +36,7 @@ jobs:
       FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
       X_COOKIES: ${{ secrets.X_COOKIES }}
       X_BASE_URL: https://x.com
-      X_EXPLORE_URL: https://x.com/explore
+      X_EXPLORE_URL: https://x.com/i/jf/global-trending/home
       MATCHDAY_MAX_MATCHES: ${{ inputs.limit || '12' }}
       MATCHDAY_X_LIMIT: "80"
       MATCHDAY_DAILY_PUSH_TARGET: "10"

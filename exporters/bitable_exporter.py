@@ -10,6 +10,7 @@ import urllib.error
 import shutil
 from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from config import settings
 
@@ -185,7 +186,9 @@ class BitableExporter:
         # 比赛日期 (从 API 数据获取)
         api_data = event_ctx.get("api_data", {})
         if api_data.get("date"):
-            fields["比赛日期"] = api_data["date"]
+            timestamp = self._to_bitable_timestamp(api_data["date"])
+            if timestamp is not None:
+                fields["比赛日期"] = timestamp
 
         # 多语言内容
         lang_field_map = {
@@ -222,6 +225,34 @@ class BitableExporter:
                 fields["情绪标签"] = self._normalize_emotions(emotions)
 
         return fields
+
+    def _to_bitable_timestamp(self, value) -> Optional[int]:
+        """Convert common datetime strings to a Feishu-compatible unix ms timestamp."""
+        if value is None or value == "":
+            return None
+        if isinstance(value, (int, float)):
+            number = int(value)
+            return number if number > 10_000_000_000 else number * 1000
+
+        text = str(value).strip()
+        if not text:
+            return None
+
+        tz = ZoneInfo(settings.TIMEZONE or "Asia/Shanghai")
+        candidates = [
+            lambda v: datetime.fromisoformat(v.replace("Z", "+00:00")),
+            lambda v: datetime.strptime(v, "%Y-%m-%d %H:%M:%S"),
+            lambda v: datetime.strptime(v, "%Y-%m-%d"),
+        ]
+        for parser in candidates:
+            try:
+                dt = parser(text)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=tz)
+                return int(dt.timestamp() * 1000)
+            except Exception:
+                continue
+        return None
 
     def _normalize_emotions(self, emotions) -> list[str]:
         """多选字段只写入表里已有的情绪选项，避免创建脏选项。"""

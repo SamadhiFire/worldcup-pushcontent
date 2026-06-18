@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # ── X 页面 URL ──
 X_BASE_URL = os.getenv("X_BASE_URL", "https://x.com")
-X_EXPLORE_URL = os.getenv("X_EXPLORE_URL", f"{X_BASE_URL}/explore")
+X_EXPLORE_URL = os.getenv("X_EXPLORE_URL", f"{X_BASE_URL}/i/jf/global-trending/home")
 
 # ── 2026 世界杯 48 支参赛队伍 ──
 # 基于 FIFA 官方参赛名单
@@ -66,13 +66,14 @@ WORLDCUP_KEYWORDS = [
 
 
 def _get_proxy() -> Optional[Dict[str, str]]:
-    """获取代理配置，优先读环境变量，回退到本地 Clash"""
+    """Get proxy config only when it is explicitly configured."""
     proxy_url = os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY")
     if proxy_url:
         return {"server": proxy_url}
-    # 回退到本地代理 (yepfastCore / Clash)
-    proxy_port = os.environ.get("PROXY_PORT", "7893")
-    return {"server": f"http://127.0.0.1:{proxy_port}"}
+    explicit_proxy = os.environ.get("X_PROXY_URL") or os.environ.get("PLAYWRIGHT_PROXY_URL")
+    if explicit_proxy:
+        return {"server": explicit_proxy}
+    return None
 
 
 def _get_cookies() -> List[Dict[str, Any]]:
@@ -185,6 +186,10 @@ class XTrendingScraper:
         print("  🌐 启动 Playwright 爬取 X Sports Trending...")
         with sync_playwright() as pw:
             proxy = _get_proxy()
+            if proxy:
+                print(f"  -> 使用代理: {proxy.get('server', '')}")
+            else:
+                print("  -> 未配置代理，直接访问 X")
             browser = pw.chromium.launch(
                 headless=True,
                 proxy=proxy,
@@ -197,6 +202,9 @@ class XTrendingScraper:
             cookies = _get_cookies()
             if cookies:
                 context.add_cookies(cookies)
+                print(f"  -> 已注入 X cookies: {len(cookies)} 个")
+            else:
+                print("  ! 未提供 X cookies，可能会命中登录墙")
 
             page = context.new_page()
 
@@ -227,6 +235,7 @@ class XTrendingScraper:
 
                 # 滚动收集推文
                 tweets = self._collect_tweets(page, limit=limit * 3)
+                print(f"  -> 原始抓取推文数: {len(tweets)}")
 
                 browser.close()
 
@@ -246,7 +255,10 @@ class XTrendingScraper:
                 self._save_cache(result)
 
                 # 过滤世界杯相关内容
-                return self._filter_worldcup(result, query)
+                filtered = self._filter_worldcup(result, query)
+                if not filtered:
+                    print("  ! 已抓到推文，但世界杯过滤后为空")
+                return filtered
 
             except PlaywrightTimeout:
                 logger.warning("X 页面加载超时")
