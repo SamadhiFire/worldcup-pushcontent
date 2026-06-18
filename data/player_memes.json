@@ -1,0 +1,68 @@
+{
+  "Mbappé": {
+    "tags": ["负面梗", "姆总监", "神龟", "隐身", "Turtle"],
+    "meme_en": "Director Mbappé, the turtle hiding in his shell",
+    "meme_zh": "姆总监，缩进壳里的神龟",
+    "country": "FRA"
+  },
+  "Harry Kane": {
+    "tags": ["负面梗", "无冠魔咒", "踢飞点球", "No Trophy"],
+    "meme_en": "The Kane curse, eternal allergy to trophies",
+    "meme_zh": "凯恩无冠魔咒，对冠军奖杯严重过敏",
+    "country": "ENG"
+  },
+  "Vinícius Júnior": {
+    "tags": ["争议", "爱哭鬼", "抱怨裁判", "舞蹈庆祝"],
+    "meme_en": "Vini crying to the ref, dancing on haters",
+    "meme_zh": "维尼修斯找裁判哭诉，进球后跳舞打脸",
+    "country": "BRA"
+  },
+  "Messi": {
+    "tags": ["传奇", "GOAT", "最后一舞", "Last Dance"],
+    "meme_en": "The GOAT's last dance",
+    "meme_zh": "GOAT 的最后一舞",
+    "country": "ARG"
+  },
+  "Cristiano Ronaldo": {
+    "tags": ["传奇", "GOAT", "CR7", "最后一舞"],
+    "meme_en": "CR7's final World Cup",
+    "meme_zh": "C 罗的最后一届世界杯",
+    "country": "POR"
+  },
+  "Neymar": {
+    "tags": ["伤病", "遗憾", "内少"],
+    "meme_en": "Neymar's injury heartbreak",
+    "meme_zh": "内马尔的伤病遗憾",
+    "country": "BRA"
+  },
+  "Bellingham": {
+    "tags": ["进球打脸", "舞蹈庆祝", "新生代之星"],
+    "meme_en": "Bellingham silencing critics with goals and dance",
+    "meme_zh": "贝林厄姆进球打脸+跳舞庆祝",
+    "country": "ENG"
+  },
+  "England National Team": {
+    "tags": ["负面梗", "足球回家", "It's Coming Home", "沉闷战术"],
+    "meme_en": "It's NOT coming home, boring tactics",
+    "meme_zh": "足球回不了家了，三喵军团",
+    "country": "ENG"
+  },
+  "Germany National Team": {
+    "tags": ["日耳曼战车", "German Machine"],
+    "meme_en": "The German Machine",
+    "meme_zh": "日耳曼战车",
+    "country": "GER"
+  },
+  "Maradona": {
+    "tags": ["传奇", "已故", "天堂十号", "D10S"],
+    "meme_en": "D10S watching from above",
+    "meme_zh": "天堂里的十号，马拉多纳",
+    "country": "ARG"
+  },
+  "Pelé": {
+    "tags": ["传奇", "已故", "球王", "O Rei"],
+    "meme_en": "The King watching from heaven",
+    "meme_zh": "球王贝利，天堂的守望",
+    "country": "BRA"
+  }
+}

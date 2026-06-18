@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+outputs/
+data/x_trending_*.json
+data/player_memes_local.json
+.DS_Store
