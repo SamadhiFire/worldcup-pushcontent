@@ -203,8 +203,11 @@ Return a JSON object with exactly these fields:
 ```
 
 ## Style Rules
-- Push Title: NO marketing speak. Sound like a fired-up fan, not a brand.
-- Push Description: Must create urgency to click and generate a song NOW.
+- Push Title: NO marketing speak. Sound like a fired-up fan, not a brand or a system alert.
+- Push Description: Must create urgency to click and generate a song NOW, but keep it human and social-native.
+- Make the copy feel alive: group-chat tension, meme-aware phrasing, fan teasing, or matchday chaos.
+- Avoid stiff templates such as "Turn this football moment into..." unless the sentence has a genuinely fresh twist.
+- Do not sound like a press release, app onboarding text, or literal translation.
 - AIGC Prompt: Must have vivid, specific imagery that produces viral-worthy lyrics.
 - Hashtags: Layer 1 (brand) + Layer 2 (event) + Layer 3 (country) + Layer 4 (player meme) + Layer 5 (scenario)
 

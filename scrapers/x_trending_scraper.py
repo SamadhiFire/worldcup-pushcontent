@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # ── X 页面 URL ──
 X_BASE_URL = os.getenv("X_BASE_URL", "https://x.com")
-X_EXPLORE_URL = os.getenv("X_EXPLORE_URL", f"{X_BASE_URL}/explore/tabs/trending")
+X_EXPLORE_URL = os.getenv("X_EXPLORE_URL", f"{X_BASE_URL}/explore")
 
 # ── 2026 世界杯 48 支参赛队伍 ──
 # 基于 FIFA 官方参赛名单
@@ -70,9 +70,9 @@ def _get_proxy() -> Optional[Dict[str, str]]:
     proxy_url = os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY")
     if proxy_url:
         return {"server": proxy_url}
-    # 回退到本地 Clash 代理
-    clash_port = os.environ.get("CLASH_PORT", "7892")
-    return {"server": f"http://127.0.0.1:{clash_port}"}
+    # 回退到本地代理 (yepfastCore / Clash)
+    proxy_port = os.environ.get("PROXY_PORT", "7893")
+    return {"server": f"http://127.0.0.1:{proxy_port}"}
 
 
 def _get_cookies() -> List[Dict[str, Any]]:
@@ -201,9 +201,10 @@ class XTrendingScraper:
             page = context.new_page()
 
             try:
-                # 打开 X Trending 页面
+                # 打开 Explore。目标不是 /explore/tabs/sports 的赛程模块，
+                # 而是 Explore 首页 Global Trending 里的 Sports 卡片。
                 page.goto(X_EXPLORE_URL, wait_until="domcontentloaded", timeout=60000)
-                page.wait_for_timeout(3000)
+                page.wait_for_timeout(5000)
 
                 # 检查是否被重定向到登录页
                 if "login" in page.url or "onboarding" in page.url:
@@ -211,13 +212,18 @@ class XTrendingScraper:
                     browser.close()
                     return None
 
-                # 点击 Sports 分类
-                sports_clicked = self._click_category(page, "Sports")
+                # 点击 Global Trending 轮播里的 Sports 卡片，进入 Popular today 推文流。
+                sports_clicked = self._open_global_trending_sports(page)
                 if not sports_clicked:
-                    logger.warning("未找到 Sports 分类，尝试从当前页面提取数据")
-                    # 即使没点到 Sports，也尝试提取当前可见的推文
+                    logger.warning("未找到 Global Trending Sports 卡片，回退到 /explore/tabs/sports")
+                    try:
+                        page.goto(f"{X_BASE_URL}/explore/tabs/sports",
+                                  wait_until="domcontentloaded", timeout=60000)
+                        page.wait_for_timeout(5000)
+                    except Exception:
+                        pass
 
-                page.wait_for_timeout(2000)
+                page.wait_for_timeout(3000)
 
                 # 滚动收集推文
                 tweets = self._collect_tweets(page, limit=limit * 3)
@@ -250,6 +256,47 @@ class XTrendingScraper:
                 logger.warning("Playwright 爬取出错: %s", e)
                 browser.close()
                 return None
+
+    def _open_global_trending_sports(self, page) -> bool:
+        """打开截图中的 Global Trending -> Sports 卡片。"""
+        from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+        try:
+            # Explore 首页通常会显示 "Global Trending" 标题。若已在别的 tab，
+            # 点击左侧 Explore 回首页会比直接 tabs/sports 更接近目标页面。
+            if page.get_by_text("Global Trending", exact=True).count() == 0:
+                try:
+                    page.goto(f"{X_BASE_URL}/explore",
+                              wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_timeout(4000)
+                except Exception:
+                    pass
+
+            # 优先点击轮播卡片中的 Sports 文本。该卡片点击后会出现
+            # "Popular today" 和真实推文流，而不是 Soccer schedule。
+            candidates = [
+                page.get_by_text("Sports", exact=True).first,
+                page.locator('[role="button"]').filter(has_text="Sports").first,
+                page.locator("a").filter(has_text="Sports").first,
+            ]
+            for locator in candidates:
+                try:
+                    if locator.count() > 0:
+                        locator.scroll_into_view_if_needed(timeout=5000)
+                        locator.click(timeout=5000)
+                        page.wait_for_timeout(5000)
+                        if page.locator('article[data-testid="tweet"]').count() > 0:
+                            return True
+                        if page.get_by_text("Popular today").count() > 0:
+                            return True
+                except PlaywrightTimeout:
+                    continue
+                except Exception:
+                    continue
+        except Exception:
+            return False
+
+        return False
 
     def _click_category(self, page, category: str) -> bool:
         """点击 X Trending 页面上的分类标签"""

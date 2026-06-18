@@ -101,10 +101,18 @@ Generate exactly one push content package for this trigger in 7 languages:
 EN, ZH, ES, MS, FIL, PT-PT, PT-BR.
 
 Each language item must include:
-- title: short push title, energetic, fan-native
-- body: push body with a clear call to generate a song in Vanso
+- title: short push title, energetic, fan-native, and written like a real fan would tap it out
+- body: push body with a clear call to generate a song in Vanso, but never stiff or corporate
 - tags: 5-8 hashtags, including #VansoWorldCup26 and #MyAnthem2026 where natural
 - emotion_tags: 2-4 emotion labels in that language or simple English if better
+
+## Voice Rules
+- Make title/body feel social-native: group-chat energy, meme-aware, a little punchy.
+- Avoid stiff phrases like "Turn this football moment into..." unless the wording is unusually fresh.
+- Do not sound like a press release, system notification, campaign slogan, or translated template.
+- Use simple, alive wording: surprise, teasing, fan tension, "we are so back" energy when appropriate.
+- Keep it safe and non-toxic: no insults, slurs, harassment, or unsupported claims.
+- Localize the vibe per language; do not mechanically translate the English line.
 
 Use the push trigger as the main angle. Use X signals only as cultural/emotional calibration. Do not copy full tweets.
 Avoid profanity, slurs, harassment, or claims that are not supported by the official match data.
@@ -196,46 +204,106 @@ Return ONLY valid JSON in this exact shape:
         display = self._match_display(match)
         opportunity = opportunity or {}
         angle = opportunity.get("title") or "matchday"
+        localized_angle = self._localized_angle(angle, code)
         templates = {
             "EN": {
-                "title": f"{angle}: {display}",
-                "body": "Turn this football moment into a Vanso anthem while the mood is hot.",
+                "title": f"{display}: {localized_angle}",
+                "body": "The timeline is already biting. Make the Vanso anthem before it moves on.",
                 "emotion_tags": opportunity.get("emotion_hint") or ["hype", "matchday", "party"],
             },
             "ZH": {
-                "title": f"{display} {angle}",
-                "body": "趁这个足球情绪点还热，直接生成一首 Vanso 战歌。",
+                "title": f"{display} {localized_angle}",
+                "body": f"{localized_angle}，这波已经有点上头了，趁热做首 Vanso 战歌。",
                 "emotion_tags": opportunity.get("emotion_hint") or ["热血", "赛前", "派对"],
             },
             "ES": {
-                "title": f"{display}: {angle}",
-                "body": "Convierte este momento caliente en un himno con Vanso.",
+                "title": f"{display}: {localized_angle}",
+                "body": f"{localized_angle} ya está sonando fuerte. Hazlo himno en Vanso antes de que cambie el timeline.",
                 "emotion_tags": opportunity.get("emotion_hint") or ["pasión", "previa", "fiesta"],
             },
             "MS": {
-                "title": f"{display}: {angle}",
-                "body": "Jadikan moment bola panas ini lagu Vanso yang terus melekat.",
+                "title": f"{display}: {localized_angle}",
+                "body": f"{localized_angle} tengah naik. Buat anthem Vanso sebelum timeline move on.",
                 "emotion_tags": opportunity.get("emotion_hint") or ["hype", "matchday", "lepak"],
             },
             "FIL": {
-                "title": f"{display}: {angle}",
-                "body": "Gawing Vanso anthem ang init ng football moment na ito.",
+                "title": f"{display}: {localized_angle}",
+                "body": f"{localized_angle} is already popping. Gawin nang Vanso anthem habang mainit pa.",
                 "emotion_tags": opportunity.get("emotion_hint") or ["hype", "matchday", "solid"],
             },
             "PT-PT": {
-                "title": f"{display}: {angle}",
-                "body": "Transforma este momento quente num hino criado no Vanso.",
+                "title": f"{display}: {localized_angle}",
+                "body": f"{localized_angle} já está a puxar pela bancada. Faz disso um hino no Vanso.",
                 "emotion_tags": opportunity.get("emotion_hint") or ["emoção", "jogo", "festa"],
             },
             "PT-BR": {
-                "title": f"{display}: {angle}",
-                "body": "Vira esse momento quente do jogo em hino no Vanso.",
+                "title": f"{display}: {localized_angle}",
+                "body": f"{localized_angle} já pegou fogo. Faz virar hino no Vanso antes que o feed passe.",
                 "emotion_tags": opportunity.get("emotion_hint") or ["vibração", "copa", "festa"],
             },
         }
         item = templates.get(code, templates["EN"])
         item["tags"] = "#VansoWorldCup26 #MyAnthem2026 #WorldCup2026 #Matchday #AIMusic"
         return item
+
+    def _localized_angle(self, angle: str, code: str) -> str:
+        labels = {
+            "matchday warmup": {
+                "EN": "warmup getting loud",
+                "ZH": "赛前味儿来了",
+                "ES": "la previa ya pica",
+                "MS": "pre-match makin panas",
+                "FIL": "pre-game ang ingay na",
+                "PT-PT": "a antevisão já ferve",
+                "PT-BR": "pré-jogo já pegou",
+            },
+            "fan heat check": {
+                "EN": "timeline heating up",
+                "ZH": "球迷已经聊炸了",
+                "ES": "el timeline está ardiendo",
+                "MS": "timeline tengah panas",
+                "FIL": "timeline umiingay na",
+                "PT-PT": "o feed está a ferver",
+                "PT-BR": "a timeline ferveu",
+            },
+            "fan banter": {
+                "EN": "banter flying already",
+                "ZH": "开麦互呛开始了",
+                "ES": "ya vuelan las bromas",
+                "MS": "banter dah mula",
+                "FIL": "asaran mode on",
+                "PT-PT": "a picardia já começou",
+                "PT-BR": "a resenha começou",
+            },
+            "short-video bait": {
+                "EN": "edit bait alert",
+                "ZH": "二创素材来了",
+                "ES": "material de edit servido",
+                "MS": "bahan edit dah sampai",
+                "FIL": "edit material na ito",
+                "PT-PT": "material para edits",
+                "PT-BR": "material de edit na mão",
+            },
+            "VAR outrage": {
+                "EN": "VAR takes incoming",
+                "ZH": "VAR 话题要炸",
+                "ES": "se viene debate VAR",
+                "MS": "VAR takes incoming",
+                "FIL": "VAR takes incoming",
+                "PT-PT": "vem debate do VAR",
+                "PT-BR": "vem treta de VAR",
+            },
+            "legacy feels": {
+                "EN": "legacy talk is back",
+                "ZH": "传奇滤镜又开了",
+                "ES": "vuelve el modo leyenda",
+                "MS": "cerita legend kembali",
+                "FIL": "legacy talk is back",
+                "PT-PT": "modo legado voltou",
+                "PT-BR": "papo de legado voltou",
+            },
+        }
+        return labels.get(angle, {}).get(code, angle)
 
     def _match_display(self, match: dict) -> str:
         home = match.get("team_home", {})

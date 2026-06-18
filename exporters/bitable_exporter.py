@@ -17,21 +17,32 @@ from config import settings
 class BitableExporter:
     """将 Push 内容写入飞书 Bitable"""
 
+    # Bitable 情绪标签字段实际选项（10个）
     EMOTION_OPTIONS = {
-        "嘲讽", "狂欢", "怀旧", "愤怒", "感动",
-        "搞笑", "挑衅", "神圣", "忧伤", "狂热",
+        "热血", "期待", "怀念", "狂欢", "戏谑",
+        "温情", "挑衅", "悲伤", "派对", "遗憾",
     }
+    # LLM 非标准输出 → 最接近的合法选项
     EMOTION_ALIASES = {
-        "预热": "狂欢",
-        "期待": "狂欢",
-        "派对": "狂欢",
-        "紧张": "狂热",
-        "实时": "狂热",
-        "争议": "愤怒",
-        "二创": "搞笑",
-        "复盘": "怀旧",
-        "赛后": "怀旧",
-        "情绪": "感动",
+        # 中文非标准 → 合法选项
+        "怀旧": "怀念", "感动": "温情", "忧伤": "悲伤",
+        "狂热": "热血", "嘲讽": "戏谑", "愤怒": "挑衅",
+        "搞笑": "戏谑", "神圣": "热血", "紧张": "期待",
+        "预热": "期待", "实时": "热血", "争议": "挑衅",
+        "二创": "戏谑", "复盘": "怀念", "赛后": "怀念",
+        "情绪": "温情",
+        # 英文 LLM 输出 → 合法中文选项 (安全网)
+        "nostalgic": "怀念", "nostalgia": "怀念",
+        "moved": "温情", "emotional": "温情",
+        "proud": "热血", "pride": "热血",
+        "hype": "热血", "excited": "热血", "passion": "热血",
+        "frustration": "遗憾", "disappointed": "遗憾",
+        "party": "派对", "celebration": "狂欢",
+        "victory": "狂欢", "anthem": "热血",
+        "sad": "悲伤",
+        "provocative": "挑衅", "dramatic": "热血",
+        "playful": "戏谑", "banter": "戏谑",
+        "hope": "期待",
     }
 
     # Bitable 字段映射 (代码字段名 → Bitable 字段名)
@@ -190,8 +201,10 @@ class BitableExporter:
             fields[title_field] = lang_content.get("push_title", "")
             fields[desc_field] = lang_content.get("push_description", "")
 
-        # 情绪标签优先使用 LLM 输出，回退到场景定义
-        emotion_tags = en.get("emotion_tags", [])
+        # 情绪标签优先使用 ZH 翻译（中文），回退到 EN（英文别名安全网）
+        # EN 输出 "nostalgic/moved/proud" 等英文词，_normalize_emotions 以中文为主
+        zh = translations.get("ZH", {})
+        emotion_tags = zh.get("emotion_tags", []) or en.get("emotion_tags", [])
         if emotion_tags:
             fields["情绪标签"] = self._normalize_emotions(emotion_tags)
 
@@ -222,7 +235,7 @@ class BitableExporter:
             value = self.EMOTION_ALIASES.get(part, part)
             if value in self.EMOTION_OPTIONS and value not in normalized:
                 normalized.append(value)
-        return normalized or ["狂热"]
+        return normalized or ["期待"]
 
     # ── 优先级映射 ──
     # 高优先级事件类型（进球/红牌/点球等直接决定比赛走向的事件）

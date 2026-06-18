@@ -82,7 +82,10 @@ class MatchdayPipeline:
     def run(self) -> dict:
         print("\n============================================================")
         print("  Vanso Matchday Push Pipeline")
-        print(f"  Date: {self.match_date or 'today'} | Limit: {self.limit}")
+        print(
+            f"  Date: {self.match_date or 'today'} | Match Limit: {self.limit} | "
+            f"Daily Push Target: {settings.MATCHDAY_DAILY_PUSH_TARGET}"
+        )
         print("============================================================\n")
 
         matches = self._load_matches()
@@ -126,6 +129,7 @@ class MatchdayPipeline:
             "source_data": {
                 "matches_count": len(matches),
                 "opportunities_count": len(opportunities),
+                "daily_push_target": settings.MATCHDAY_DAILY_PUSH_TARGET,
                 "x_trending_count": len((trending or {}).get("raw_items", [])),
                 "x_hashtags": (trending or {}).get("hashtags", []),
             },
@@ -187,14 +191,34 @@ class MatchdayPipeline:
 
     def _build_opportunities(self, matches: list[dict], trending: dict) -> list[dict]:
         """一场比赛可以拆成多条 Push 机会。"""
-        opportunities = []
+        target = max(1, settings.MATCHDAY_DAILY_PUSH_TARGET)
+        per_match_limit = max(1, settings.MATCHDAY_MAX_PUSHES_PER_MATCH)
+        official_opportunities = []
+        social_opportunities = []
         raw_items = (trending or {}).get("raw_items", [])
         for match in matches:
-            per_match = [self._official_opportunity(match)]
-            per_match.extend(self._x_trending_opportunities(match, raw_items))
-            per_match = self._dedupe_opportunities(per_match)
-            opportunities.extend(per_match[: settings.MATCHDAY_MAX_PUSHES_PER_MATCH])
-        print(f"  OK 构建 {len(opportunities)} 个 Push 触发机会")
+            official_opportunities.append(self._official_opportunity(match))
+            per_match_social = self._dedupe_opportunities(self._x_trending_opportunities(match, raw_items))
+            per_match_social.sort(key=self._opportunity_rank, reverse=True)
+            social_opportunities.extend(per_match_social[: max(0, per_match_limit - 1)])
+
+        official_opportunities = self._dedupe_opportunities(official_opportunities)
+        social_opportunities = self._dedupe_opportunities(social_opportunities)
+        social_opportunities.sort(key=self._opportunity_rank, reverse=True)
+
+        opportunities = []
+        # Keep one official anchor per match first, then fill the day with the strongest social angles.
+        for item in official_opportunities:
+            if len(opportunities) >= target:
+                break
+            opportunities.append(item)
+        for item in social_opportunities:
+            if len(opportunities) >= target:
+                break
+            opportunities.append(item)
+
+        opportunities = self._dedupe_opportunities(opportunities)[:target]
+        print(f"  OK 构建 {len(opportunities)} 个 Push 触发机会（每日目标 {target} 条）")
         return opportunities
 
     def _official_opportunity(self, match: dict) -> dict:
@@ -234,24 +258,42 @@ class MatchdayPipeline:
             if any(token and token.lower() in text for token in tokens):
                 matched.append(item)
         if not matched:
-            matched = raw_items[:1]
+            matched = raw_items
 
         opportunities = []
-        for item in matched[:1]:
+        for item in matched[: settings.MATCHDAY_DAILY_PUSH_TARGET]:
             content = item.get("content", "")
             topic = content[:120]
+            engagement = self._engagement_score(item)
             opportunities.append({
                 "type": "x_trending",
-                "title": "X Sports hot angle",
+                "title": self._angle_title_from_text(content),
                 "description": f"X Sports 热点触发：{topic}",
                 "scenario_hint": self._scenario_from_text(content),
                 "emotion_hint": self._emotion_from_text(content),
                 "source": "x_sports_trending",
                 "related_topic": topic,
-                "priority": "high" if self._engagement_score(item) >= 10000 else "normal",
+                "engagement_score": engagement,
+                "priority": "high" if engagement >= 10000 else "normal",
                 "match": match,
             })
         return opportunities
+
+    def _angle_title_from_text(self, text: str) -> str:
+        lowered = text.lower()
+        if any(word in lowered for word in ["var", "robbed", "ref", "penalty"]):
+            return "VAR outrage"
+        if any(word in lowered for word in ["meme", "joke", "banter", "cry"]):
+            return "fan banter"
+        if any(word in lowered for word in ["edit", "tiktok", "reels", "dance"]):
+            return "short-video bait"
+        if any(word in lowered for word in ["legend", "goat", "last dance", "tribute"]):
+            return "legacy feels"
+        return "fan heat check"
+
+    def _opportunity_rank(self, item: dict) -> tuple[int, int]:
+        priority_score = {"high": 2, "normal": 1}.get(item.get("priority", "normal"), 0)
+        return priority_score, int(item.get("engagement_score") or 0)
 
     def _dedupe_opportunities(self, opportunities: list[dict]) -> list[dict]:
         seen = set()

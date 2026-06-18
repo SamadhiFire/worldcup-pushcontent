@@ -67,8 +67,9 @@ DRY_RUN: bool = _get("DRY_RUN", "false").lower() == "true"
 OUTPUT_FORMAT: str = _get("OUTPUT_FORMAT", "both")
 TIMEZONE: str = _get("TIMEZONE", "Asia/Shanghai")
 MATCHDAY_MAX_MATCHES: int = int(_get("MATCHDAY_MAX_MATCHES", "12") or "12")
-MATCHDAY_X_LIMIT: int = int(_get("MATCHDAY_X_LIMIT", "30") or "30")
-MATCHDAY_MAX_PUSHES_PER_MATCH: int = int(_get("MATCHDAY_MAX_PUSHES_PER_MATCH", "2") or "2")
+MATCHDAY_X_LIMIT: int = int(_get("MATCHDAY_X_LIMIT", "80") or "80")
+MATCHDAY_DAILY_PUSH_TARGET: int = int(_get("MATCHDAY_DAILY_PUSH_TARGET", "10") or "10")
+MATCHDAY_MAX_PUSHES_PER_MATCH: int = int(_get("MATCHDAY_MAX_PUSHES_PER_MATCH", "10") or "10")
 
 # ── 数据路径 ──
 DATA_DIR: Path = Path(__file__).resolve().parent.parent / "data"
