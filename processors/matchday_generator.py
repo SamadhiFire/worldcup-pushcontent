@@ -70,6 +70,7 @@ class MatchdayPushGenerator:
         compact_opportunity = {
             "type": opportunity.get("type", "matchday"),
             "title": opportunity.get("title", ""),
+            "hook": opportunity.get("hook", ""),
             "description": opportunity.get("description", ""),
             "scenario_hint": opportunity.get("scenario_hint", ""),
             "emotion_hint": opportunity.get("emotion_hint", []),
@@ -108,16 +109,28 @@ Each language item must include:
 
 ## Voice Rules
 - Make title/body feel social-native: group-chat energy, meme-aware, a little punchy.
+- Use the hook in the trigger as the center of gravity. Write from the actual fan angle, not from a generic category label.
 - Avoid stiff phrases like "Turn this football moment into..." unless the wording is unusually fresh.
 - Do not sound like a press release, system notification, campaign slogan, or translated template.
 - Use simple, alive wording: surprise, teasing, fan tension, "we are so back" energy when appropriate.
 - Keep it safe and non-toxic: no insults, slurs, harassment, or unsupported claims.
 - Localize the vibe per language; do not mechanically translate the English line.
 
+## Style Anchors
+Good:
+- "Brazil dance edits are taking over. Make yours louder."
+- "This is already a group chat war. Drop the anthem now."
+- "The watch-party side picking has started. Score your version first."
+
+Avoid:
+- "Generate a song for this exciting football moment now."
+- "This match is trending on social media. Create content with Vanso."
+- "Stay tuned and make an anthem before the trend ends."
+
 Use the push trigger as the main angle. Use X signals only as cultural/emotional calibration. Do not copy full tweets.
 Avoid profanity, slurs, harassment, or claims that are not supported by the official match data.
 
-Return ONLY valid JSON in this exact shape:
+Use this JSON schema and return JSON only:
 ```json
 {{
   "scenario": "社交派对|主场狂热|情怀致敬|短视频二创|玩梗群嘲|遗憾怀念",
@@ -203,42 +216,117 @@ Return ONLY valid JSON in this exact shape:
     def _fallback_text(self, match: dict, code: str, opportunity: dict | None = None) -> dict[str, Any]:
         display = self._match_display(match)
         opportunity = opportunity or {}
-        angle = opportunity.get("title") or "matchday"
+        angle = opportunity.get("hook") or opportunity.get("title") or "matchday"
         localized_angle = self._localized_angle(angle, code)
+        variant = self._pick_variant(f"{display}|{angle}|{code}", 3)
+        title_variants = {
+            "EN": [
+                f"{display}: {localized_angle}",
+                f"{localized_angle.capitalize()} for {display}",
+                f"{display} and the feed is moving",
+            ],
+            "ZH": [
+                f"{display} {localized_angle}",
+                f"{localized_angle}，{display} 先热起来了",
+                f"{display} 这场已经开始有话题了",
+            ],
+            "ES": [
+                f"{display}: {localized_angle}",
+                f"{localized_angle.capitalize()} con {display}",
+                f"{display} ya mueve el timeline",
+            ],
+            "MS": [
+                f"{display}: {localized_angle}",
+                f"{localized_angle.capitalize()} untuk {display}",
+                f"{display} dah mula panas",
+            ],
+            "FIL": [
+                f"{display}: {localized_angle}",
+                f"{localized_angle.capitalize()} sa {display}",
+                f"{display} umiingay na agad",
+            ],
+            "PT-PT": [
+                f"{display}: {localized_angle}",
+                f"{localized_angle.capitalize()} em {display}",
+                f"{display} já mexe com o feed",
+            ],
+            "PT-BR": [
+                f"{display}: {localized_angle}",
+                f"{localized_angle.capitalize()} em {display}",
+                f"{display} já virou assunto cedo",
+            ],
+        }
+        body_variants = {
+            "EN": [
+                "The group chat is already moving. Make the Vanso anthem before someone else claims the moment.",
+                "This one already has feed energy. Turn it into a Vanso anthem while it is still hot.",
+                "People are already picking sides. Drop the Vanso anthem before the timeline flips again.",
+            ],
+            "ZH": [
+                f"{localized_angle}，群聊已经开始刷屏了，趁热做首 Vanso 战歌。",
+                f"{localized_angle}，这波话题感已经起来了，先把 Vanso 战歌做出来。",
+                f"{localized_angle}，大家已经开始站队了，快把这口气写成 Vanso 战歌。",
+            ],
+            "ES": [
+                f"{localized_angle}, el grupo ya está encendido. Haz tu himno en Vanso antes de que cambie el mood.",
+                f"{localized_angle}, esto ya tiene energía de feed. Vuélvelo himno en Vanso mientras sigue caliente.",
+                f"{localized_angle}, la gente ya está tomando partido. Saca el himno en Vanso ya.",
+            ],
+            "MS": [
+                f"{localized_angle}, group chat dah bising. Buat anthem Vanso sebelum mood bertukar.",
+                f"{localized_angle}, feed memang tengah hidup. Tukar jadi anthem Vanso masa masih panas.",
+                f"{localized_angle}, orang dah mula pilih side. Lepaskan anthem Vanso sekarang.",
+            ],
+            "FIL": [
+                f"{localized_angle}, maingay na ang group chat. Gawin na itong Vanso anthem habang mainit pa.",
+                f"{localized_angle}, may laman na agad ang feed. I-Vanso anthem mo na bago humupa.",
+                f"{localized_angle}, may kampihan na agad. Ilabas mo na ang Vanso anthem ngayon.",
+            ],
+            "PT-PT": [
+                f"{localized_angle}, o grupo já está aceso. Faz disto um hino no Vanso antes de mudar o tom.",
+                f"{localized_angle}, isto já tem energia de feed. Puxa por um hino no Vanso enquanto ferve.",
+                f"{localized_angle}, já há gente a escolher lado. Lança o hino no Vanso agora.",
+            ],
+            "PT-BR": [
+                f"{localized_angle}, o grupo já tá daquele jeito. Faz virar hino no Vanso antes da conversa mudar.",
+                f"{localized_angle}, isso já tem cara de feed ligado. Puxa o hino no Vanso enquanto tá quente.",
+                f"{localized_angle}, a galera já começou a escolher lado. Solta o hino no Vanso agora.",
+            ],
+        }
         templates = {
             "EN": {
-                "title": f"{display}: {localized_angle}",
-                "body": "The timeline is already biting. Make the Vanso anthem before it moves on.",
+                "title": title_variants["EN"][variant],
+                "body": body_variants["EN"][variant],
                 "emotion_tags": opportunity.get("emotion_hint") or ["hype", "matchday", "party"],
             },
             "ZH": {
-                "title": f"{display} {localized_angle}",
-                "body": f"{localized_angle}，这波已经有点上头了，趁热做首 Vanso 战歌。",
+                "title": title_variants["ZH"][variant],
+                "body": body_variants["ZH"][variant],
                 "emotion_tags": opportunity.get("emotion_hint") or ["热血", "赛前", "派对"],
             },
             "ES": {
-                "title": f"{display}: {localized_angle}",
-                "body": f"{localized_angle} ya está sonando fuerte. Hazlo himno en Vanso antes de que cambie el timeline.",
+                "title": title_variants["ES"][variant],
+                "body": body_variants["ES"][variant],
                 "emotion_tags": opportunity.get("emotion_hint") or ["pasión", "previa", "fiesta"],
             },
             "MS": {
-                "title": f"{display}: {localized_angle}",
-                "body": f"{localized_angle} tengah naik. Buat anthem Vanso sebelum timeline move on.",
+                "title": title_variants["MS"][variant],
+                "body": body_variants["MS"][variant],
                 "emotion_tags": opportunity.get("emotion_hint") or ["hype", "matchday", "lepak"],
             },
             "FIL": {
-                "title": f"{display}: {localized_angle}",
-                "body": f"{localized_angle} is already popping. Gawin nang Vanso anthem habang mainit pa.",
+                "title": title_variants["FIL"][variant],
+                "body": body_variants["FIL"][variant],
                 "emotion_tags": opportunity.get("emotion_hint") or ["hype", "matchday", "solid"],
             },
             "PT-PT": {
-                "title": f"{display}: {localized_angle}",
-                "body": f"{localized_angle} já está a puxar pela bancada. Faz disso um hino no Vanso.",
+                "title": title_variants["PT-PT"][variant],
+                "body": body_variants["PT-PT"][variant],
                 "emotion_tags": opportunity.get("emotion_hint") or ["emoção", "jogo", "festa"],
             },
             "PT-BR": {
-                "title": f"{display}: {localized_angle}",
-                "body": f"{localized_angle} já pegou fogo. Faz virar hino no Vanso antes que o feed passe.",
+                "title": title_variants["PT-BR"][variant],
+                "body": body_variants["PT-BR"][variant],
                 "emotion_tags": opportunity.get("emotion_hint") or ["vibração", "copa", "festa"],
             },
         }
@@ -246,64 +334,120 @@ Return ONLY valid JSON in this exact shape:
         item["tags"] = "#VansoWorldCup26 #MyAnthem2026 #WorldCup2026 #Matchday #AIMusic"
         return item
 
+    def _pick_variant(self, seed: str, size: int) -> int:
+        return sum(ord(ch) for ch in seed) % size
+
     def _localized_angle(self, angle: str, code: str) -> str:
         labels = {
-            "matchday warmup": {
-                "EN": "warmup getting loud",
-                "ZH": "赛前味儿来了",
-                "ES": "la previa ya pica",
-                "MS": "pre-match makin panas",
-                "FIL": "pre-game ang ingay na",
-                "PT-PT": "a antevisão já ferve",
-                "PT-BR": "pré-jogo já pegou",
-            },
-            "fan heat check": {
-                "EN": "timeline heating up",
-                "ZH": "球迷已经聊炸了",
-                "ES": "el timeline está ardiendo",
-                "MS": "timeline tengah panas",
-                "FIL": "timeline umiingay na",
-                "PT-PT": "o feed está a ferver",
-                "PT-BR": "a timeline ferveu",
-            },
-            "fan banter": {
-                "EN": "banter flying already",
-                "ZH": "开麦互呛开始了",
-                "ES": "ya vuelan las bromas",
-                "MS": "banter dah mula",
-                "FIL": "asaran mode on",
-                "PT-PT": "a picardia já começou",
-                "PT-BR": "a resenha começou",
-            },
-            "short-video bait": {
-                "EN": "edit bait alert",
-                "ZH": "二创素材来了",
-                "ES": "material de edit servido",
-                "MS": "bahan edit dah sampai",
-                "FIL": "edit material na ito",
-                "PT-PT": "material para edits",
-                "PT-BR": "material de edit na mão",
-            },
-            "VAR outrage": {
-                "EN": "VAR takes incoming",
-                "ZH": "VAR 话题要炸",
-                "ES": "se viene debate VAR",
-                "MS": "VAR takes incoming",
-                "FIL": "VAR takes incoming",
-                "PT-PT": "vem debate do VAR",
-                "PT-BR": "vem treta de VAR",
-            },
-            "legacy feels": {
-                "EN": "legacy talk is back",
-                "ZH": "传奇滤镜又开了",
-                "ES": "vuelve el modo leyenda",
-                "MS": "cerita legend kembali",
-                "FIL": "legacy talk is back",
-                "PT-PT": "modo legado voltou",
-                "PT-BR": "papo de legado voltou",
-            },
         }
-        return labels.get(angle, {}).get(code, angle)
+        keyword_rules = [
+            (["pre-kickoff"], {
+                "EN": "pre-kickoff noise is building",
+                "ZH": "赛前气氛已经拱起来了",
+                "ES": "el ruido previo ya va subiendo",
+                "MS": "suasana pra-sepak mula naik",
+                "FIL": "umiinit na ang pre-kickoff vibe",
+                "PT-PT": "o barulho antes do jogo já sobe",
+                "PT-BR": "o pré-jogo já tá ganhando barulho",
+            }),
+            (["live momentum"], {
+                "EN": "live momentum keeps swinging",
+                "ZH": "现场节奏已经开始摇摆了",
+                "ES": "la inercia en vivo no para de cambiar",
+                "MS": "momentum live asyik berubah",
+                "FIL": "palit nang palit ang live momentum",
+                "PT-PT": "o embalo ao vivo não pára de mexer",
+                "PT-BR": "o momentum ao vivo tá virando toda hora",
+            }),
+            (["final-whistle"], {
+                "EN": "final-whistle reactions are landing",
+                "ZH": "终场情绪已经落下来了",
+                "ES": "ya caen las reacciones del pitido final",
+                "MS": "reaksi wisel penamat dah turun",
+                "FIL": "bumubuhos na ang final-whistle reactions",
+                "PT-PT": "já caem as reacções do apito final",
+                "PT-BR": "já tão vindo as reações do apito final",
+            }),
+            (["watch-party", "watch party"], {
+                "EN": "watch-party plans are getting loud",
+                "ZH": "观赛局已经热起来了",
+                "ES": "los planes para ver el partido ya se calentaron",
+                "MS": "plan tengok ramai-ramai dah panas",
+                "FIL": "umiinit na ang watch-party plans",
+                "PT-PT": "os planos de watch party já aqueceram",
+                "PT-BR": "o esquenta da watch party já começou",
+            }),
+            (["dance edits", "edit culture", "edit"], {
+                "EN": "edit culture found its next clip",
+                "ZH": "二创素材已经到位了",
+                "ES": "los edits ya encontraron su próximo clip",
+                "MS": "bahan edit dah jumpa klip baru",
+                "FIL": "may bago nang clip ang edit crowd",
+                "PT-PT": "os edits já encontraram o próximo clip",
+                "PT-BR": "os edits já acharam o próximo corte",
+            }),
+            (["mbappe", "vini"], {
+                "EN": "Mbappe vs Vini debates are heating up",
+                "ZH": "姆总和维尼这波开始对喷了",
+                "ES": "el debate Mbappe vs Vini ya sube",
+                "MS": "debat Mbappe lawan Vini dah naik",
+                "FIL": "umiinit na ang Mbappe vs Vini debate",
+                "PT-PT": "o debate Mbappe vs Vini já aquece",
+                "PT-BR": "o debate Mbappe vs Vini já esquentou",
+            }),
+            (["var"], {
+                "EN": "VAR takes are already flying",
+                "ZH": "VAR 话题已经飞起来了",
+                "ES": "ya vuelan las takes del VAR",
+                "MS": "cerita VAR dah terbang",
+                "FIL": "lumilipad na ang VAR takes",
+                "PT-PT": "as takes sobre o VAR já voam",
+                "PT-BR": "as takes de VAR já tão voando",
+            }),
+            (["banter"], {
+                "EN": "banter is already getting messy",
+                "ZH": "玩梗互呛已经开始乱了",
+                "ES": "las bromas ya se están poniendo picantes",
+                "MS": "banter dah mula jadi pedas",
+                "FIL": "umiinit na ang asaran",
+                "PT-PT": "a picardia já ficou mais acesa",
+                "PT-BR": "a resenha já ficou mais ácida",
+            }),
+            (["group chat"], {
+                "EN": "group chat is already losing it",
+                "ZH": "群聊已经先炸了",
+                "ES": "el grupo ya está perdiendo la cabeza",
+                "MS": "group chat dah meletup dulu",
+                "FIL": "nabaliw na agad ang group chat",
+                "PT-PT": "o grupo já está a perder a cabeça",
+                "PT-BR": "o grupo já enlouqueceu",
+            }),
+            (["fans are already picking"], {
+                "EN": "fans are already picking their angle",
+                "ZH": "球迷已经开始选边站了",
+                "ES": "la afición ya está escogiendo bando",
+                "MS": "fans dah mula pilih side",
+                "FIL": "pumipili na agad ng side ang fans",
+                "PT-PT": "os adeptos já estão a escolher lado",
+                "PT-BR": "a torcida já começou a escolher lado",
+            }),
+            (["fan chants"], {
+                "EN": "fan chants are writing themselves",
+                "ZH": "助威词已经自己冒出来了",
+                "ES": "los cánticos ya se escriben solos",
+                "MS": "chant fan macam tulis sendiri",
+                "FIL": "parang kusang sumusulat ang chants",
+                "PT-PT": "os cânticos já se escrevem sozinhos",
+                "PT-BR": "os cantos já tão vindo sozinhos",
+            }),
+        ]
+        lowered = angle.lower()
+        for keywords, mapping in keyword_rules:
+            if any(keyword in lowered for keyword in keywords):
+                return mapping.get(code, mapping["EN"])
+        if code == "ZH":
+            return angle
+        return angle.rstrip(".")
 
     def _match_display(self, match: dict) -> str:
         home = match.get("team_home", {})

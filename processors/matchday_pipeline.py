@@ -10,6 +10,7 @@ GitHub Actions 定时触发时使用：
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -223,25 +224,37 @@ class MatchdayPipeline:
 
     def _official_opportunity(self, match: dict) -> dict:
         status = match.get("status", "")
+        display = self._match_display(match)
+        stage = match.get("stage", "")
+        venue = match.get("venue", "")
         if status == "LIVE":
-            title = "live momentum"
+            title = "live momentum keeps swinging"
+            hook = "live momentum keeps swinging"
             scenario = "主场狂热"
             emotions = ["狂热", "愤怒"]
             priority = "high"
         elif status == "FT":
-            title = "full-time reaction"
+            title = "final-whistle reactions are landing"
+            hook = "final-whistle reactions are landing"
             scenario = "情怀致敬"
             emotions = ["怀旧", "感动"]
             priority = "normal"
         else:
-            title = "matchday warmup"
+            stage_label = stage or "matchday"
+            title = f"{stage_label} warmup is building"
+            hook = "pre-kickoff noise is building"
             scenario = "社交派对"
             emotions = ["狂欢", "挑衅"]
             priority = "normal"
         return {
             "type": "matchday_" + status.lower() if status else "matchday",
             "title": title,
-            "description": f"{self._match_display(match)} 官方赛程状态触发：{status or 'NS'}",
+            "hook": hook,
+            "description": (
+                f"官方赛程触发：{display} | 状态 {status or 'NS'}"
+                f"{' | 阶段 ' + stage if stage else ''}"
+                f"{' | 场馆 ' + venue if venue else ''}"
+            ),
             "scenario_hint": scenario,
             "emotion_hint": emotions,
             "source": "official_schedule",
@@ -265,9 +278,11 @@ class MatchdayPipeline:
             content = item.get("content", "")
             topic = content[:120]
             engagement = self._engagement_score(item)
+            topic_hook = self._topic_hook_from_text(content)
             opportunities.append({
                 "type": "x_trending",
-                "title": self._angle_title_from_text(content),
+                "title": topic_hook,
+                "hook": topic_hook,
                 "description": f"X Sports 热点触发：{topic}",
                 "scenario_hint": self._scenario_from_text(content),
                 "emotion_hint": self._emotion_from_text(content),
@@ -278,6 +293,39 @@ class MatchdayPipeline:
                 "match": match,
             })
         return opportunities
+
+    def _topic_hook_from_text(self, text: str) -> str:
+        lowered = text.lower()
+        rules = [
+            (["watch party", "watch parties"], "watch-party plans are getting loud"),
+            (["dance edit", "dance edits"], "dance edits are taking over"),
+            (["mbappe", "vini"], "Mbappe vs Vini debates are heating up"),
+            (["var", "ref", "penalty"], "VAR takes are already flying"),
+            (["chant", "chants"], "fan chants are writing themselves"),
+            (["group chat"], "group chat is already losing it"),
+            (["fans saying"], "fans are already picking their angle"),
+            (["meme", "banter", "joke"], "banter is already getting messy"),
+            (["legend", "goat", "tribute", "last dance"], "legacy talk is creeping in"),
+            (["edit", "reels", "tiktok"], "edit culture found its next clip"),
+        ]
+        for keywords, label in rules:
+            if all(word in lowered for word in keywords):
+                return label
+        for keywords, label in rules:
+            if any(word in lowered for word in keywords):
+                return label
+
+        cleaned = re.sub(r"#\S+", "", text)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,!?:;")
+        cleaned = re.sub(r"\b(france|brazil|fra|bra|world cup|worldcup2026)\b", "", cleaned, flags=re.I)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,!?:;")
+        if not cleaned:
+            return "fan heat is building"
+
+        words = cleaned.split()
+        if len(words) > 8:
+            cleaned = " ".join(words[:8]).rstrip(".,!?:;") + "..."
+        return cleaned[0].lower() + cleaned[1:] if len(cleaned) > 1 else cleaned.lower()
 
     def _angle_title_from_text(self, text: str) -> str:
         lowered = text.lower()
@@ -299,7 +347,11 @@ class MatchdayPipeline:
         seen = set()
         unique = []
         for item in opportunities:
-            key = (item.get("type"), item.get("related_topic", "")[:80], self._match_display(item["match"]))
+            key = (
+                item.get("type"),
+                item.get("hook") or item.get("title", ""),
+                self._match_display(item["match"]),
+            )
             if key in seen:
                 continue
             seen.add(key)

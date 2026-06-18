@@ -143,8 +143,18 @@ class MultiLanguageTranslator:
 6. AIGC Prompt: adapt the lyrics theme and key_imagery to {lang_info.get('name', target_lang)} culture
 7. Hashtags: add local fan community hashtags alongside the universal ones
 
+## Style Anchors
+Good:
+- Sounds like something fans in {lang_info.get('name', target_lang)} would actually repost or throw into group chat
+- Uses native rhythm, teasing, and football-fan shorthand
+
+Avoid:
+- Word-for-word carryover from English
+- Brand copy, app-store copy, or polite corporate wording
+- Over-explaining the moment instead of jumping into it
+
 ## Output Format
-Return a JSON object with exactly these fields:
+Use this JSON schema:
 ```json
 {{
     "push_title": "adapted title in {lang_info.get('name', target_lang)}",
@@ -154,7 +164,7 @@ Return a JSON object with exactly these fields:
 }}
 ```
 
-Return ONLY the JSON object."""
+Return JSON only."""
 
         response = self.generator._call_llm(prompt, system_role="translator")
 

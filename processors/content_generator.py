@@ -141,7 +141,7 @@ Style Guidelines:
 - Social Focus: {style['social_focus']}
 
 ## Output Requirements
-Return a JSON object with exactly these fields:
+Use the following JSON schema:
 
 ```json
 {{
@@ -211,13 +211,24 @@ Return a JSON object with exactly these fields:
 - AIGC Prompt: Must have vivid, specific imagery that produces viral-worthy lyrics.
 - Hashtags: Layer 1 (brand) + Layer 2 (event) + Layer 3 (country) + Layer 4 (player meme) + Layer 5 (scenario)
 
+## Style Anchors
+Good:
+- "This one is getting petty. Turn it into a hook before the feed flips."
+- "The crowd already picked a side. Make the anthem louder."
+- "This moment has clip energy. Score it now."
+
+Avoid:
+- "Generate a song for this exciting football event."
+- "This trend is popular on social media right now."
+- "Click to create an anthem inspired by the match."
+
 ## LANGUAGE ENFORCEMENT (CRITICAL)
 - ALL text fields (push_title, push_description, aigc_prompt, hashtags, applicable_object) MUST be in ENGLISH ONLY.
 - push_title and push_description characters: must be ASCII/Latin alphabet. NO Chinese, Japanese, Korean, Arabic, or any non-Latin script.
 - Even if the player/team is non-English, use their English name (e.g., "Vinicius" not "维尼修斯").
 - If you output any Chinese or non-English content, the result will be REJECTED.
 
-Return ONLY the JSON object, no extra text."""
+Return JSON only, no commentary before or after."""
 
     def _call_llm(self, prompt: str, system_role: str = "content_generator",
                   max_retries: int = 3) -> str:
