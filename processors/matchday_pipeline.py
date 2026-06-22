@@ -18,6 +18,7 @@ from config import settings
 from data_sources.api_football import APIFootballClient, team_display_cn
 from exporters.bitable_exporter import BitableExporter
 from processors.matchday_generator import MatchdayPushGenerator
+from processors.music_prompt_generator import MusicPromptGenerator
 from scrapers.x_trending_scraper import XTrendingScraper
 
 
@@ -109,6 +110,7 @@ class MatchdayPipeline:
         trending = self._load_trending(matches)
         opportunities = self._build_opportunities(matches, trending)
         generator = MatchdayPushGenerator(mock=self.mock_llm)
+        music_prompt_generator = MusicPromptGenerator(mock=self.mock_llm)
 
         content_entries = []
         for idx, opportunity in enumerate(opportunities, start=1):
@@ -116,11 +118,15 @@ class MatchdayPipeline:
             display = self._match_display(match)
             print(f"[3/5] 生成 {idx}/{len(opportunities)}: {display} | {opportunity['title']}")
             content = generator.generate(match, trending, opportunity)
+            export_result = self._to_export_result(match, content, trending, opportunity)
+            music_prompt = music_prompt_generator.generate(export_result["event_context"], content)
+            content["en"]["music_prompt"] = music_prompt["music_prompt"]
+            content["en"]["negative_prompt"] = music_prompt["negative_prompt"]
             content_entries.append({
                 "match": match,
                 "trigger": opportunity,
                 "content": content,
-                "result": self._to_export_result(match, content, trending, opportunity),
+                "result": export_result,
             })
 
         result = {

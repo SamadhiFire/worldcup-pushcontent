@@ -19,6 +19,7 @@ from config import settings
 from data_sources.api_football import APIFootballClient
 from processors.scenario_classifier import ScenarioClassifier
 from processors.content_generator import ContentGenerator
+from processors.music_prompt_generator import MusicPromptGenerator
 from processors.translator import MultiLanguageTranslator
 from processors.matchday_pipeline import MatchdayPipeline
 from exporters.bitable_exporter import BitableExporter
@@ -123,6 +124,7 @@ def run_generate(args):
     # ── Step 3: 内容生成 (EN 基准) ──
     print("[3/4] 生成 Push 内容 (EN 基准)...")
     generator = ContentGenerator()
+    music_prompt_generator = MusicPromptGenerator()
     all_content = []
 
     for scenario_info in scenarios:
@@ -147,6 +149,10 @@ def run_generate(args):
             "en": en_content,
             "translations": multilang_content,
         }
+        print("  -> 生成 AIGC 音乐 Prompt (EN)...")
+        music_prompt = music_prompt_generator.generate(event_context, content_entry)
+        content_entry["en"]["music_prompt"] = music_prompt["music_prompt"]
+        content_entry["en"]["negative_prompt"] = music_prompt["negative_prompt"]
         all_content.append(content_entry)
 
         print(f"  OK 完成: Push Title (EN) = {en_content.get('push_title', '')[:50]}")

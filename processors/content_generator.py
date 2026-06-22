@@ -237,6 +237,7 @@ Return JSON only, no commentary before or after."""
             "content_generator": "You are a world-class social media content strategist and AI music prompt engineer specializing in football/soccer culture. You output only valid JSON. ALL content you generate MUST be in ENGLISH only — never use Chinese or any other language.",
             "translator": "You are a football culture localization expert. You adapt content culturally, not translate literally. You output only valid JSON.",
             "matchday_push_generator": "You are a World Cup matchday push editor for an AI music app. You merge official match data and social trend signals, then output only valid JSON for EN, ZH, ES, MS, FIL, PT-PT, and PT-BR.",
+            "music_prompt_director": "You are an AI music prompt director for a football fan music generation app. You output only valid JSON. The music_prompt and negative_prompt values must be English only, concise, specific, and safe.",
         }
 
         payload = {

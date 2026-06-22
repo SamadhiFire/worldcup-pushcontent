@@ -265,6 +265,10 @@ class BitableExporter:
 
     def _build_aigc_prompt_text(self, event_ctx: dict, content: dict, match_display: str) -> str:
         """Convert the structured AIGC prompt into plain text under 100 words."""
+        generated_prompt = self._preferred_music_prompt(content)
+        if generated_prompt:
+            return self._truncate_words(self._plain_prompt_string(generated_prompt), 100)
+
         prompt = self._preferred_aigc_prompt(content)
         event = event_ctx.get("event", {})
 
@@ -314,6 +318,14 @@ class BitableExporter:
 
     def _article_for(self, text: str) -> str:
         return "an" if text[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
+
+    def _preferred_music_prompt(self, content: dict) -> str:
+        en = content.get("en", {})
+        if en.get("music_prompt"):
+            return str(en.get("music_prompt", "")).strip()
+        if content.get("music_prompt"):
+            return str(content.get("music_prompt", "")).strip()
+        return ""
 
     def _preferred_aigc_prompt(self, content: dict):
         en = content.get("en", {})

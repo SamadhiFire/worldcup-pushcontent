@@ -40,7 +40,8 @@ TEAM_CODE_TO_CN = {
     # L组
     "SUI": "瑞士", "AUT": "奥地利", "IRN": "伊朗", "QAT": "卡塔尔",
     # 常见补充/历史强队，避免外部源返回时显示半英半中
-    "SWE": "瑞典", "CIV": "科特迪瓦",
+    "SWE": "瑞典", "CIV": "科特迪瓦", "CPV": "佛得角",
+    "NZL": "新西兰", "EGY": "埃及", "GHA": "加纳", "UZB": "乌兹别克斯坦",
 }
 
 # 中文名 → 3字母代码（反向映射）
@@ -107,6 +108,11 @@ TEAM_EN_TO_CN = {
     "cote d ivoire": "科特迪瓦",
     "cote divoire": "科特迪瓦",
     "ivory coast": "科特迪瓦",
+    "cape verde": "佛得角",
+    "new zealand": "新西兰",
+    "egypt": "埃及",
+    "ghana": "加纳",
+    "uzbekistan": "乌兹别克斯坦",
 }
 
 
