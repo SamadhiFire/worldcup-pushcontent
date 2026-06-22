@@ -219,7 +219,7 @@
       "must_avoid": ["explicit profanity", "personal attacks beyond public persona"]
     },
     "production": {
-      "length_seconds": [60, 90],
+      "duration_policy": "no fixed duration; let the music model decide the full song length",
       "energy_curve": "starts chill, builds slightly in chorus, drops back",
       "mix_style": "lo-fi warmth, slightly vintage",
       "hook_strength": "high - chorus should be instantly singable"
@@ -359,7 +359,7 @@ Pipeline 分为两条线路并行运作：
    - instrumentation (core/accent/exclude)
    - vocal (style/gender/language/tone/reference)
    - lyrics (theme/key_imagery/tone/structure/must_include/must_avoid)
-   - production (length_seconds/energy_curve/mix_style/hook_strength)
+   - production (duration_policy/energy_curve/mix_style/hook_strength)
    - social_optimization (tiktok_friendly/meme_potential/duet_friendly)
 4. Hashtags：5-8个，包含 #VansoWorldCup26 + 国家标签 + 球员梗标签 + 场景标签
 

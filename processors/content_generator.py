@@ -185,7 +185,7 @@ Use the following JSON schema:
             "must_avoid": ["profanity", "personal attacks"]
         }},
         "production": {{
-            "length_seconds": [60, 90],
+            "duration_policy": "no fixed duration; let the music model decide the full song length",
             "energy_curve": "how energy builds through the song",
             "mix_style": "production aesthetic",
             "hook_strength": "high/medium - how catchy the hook should be"
@@ -209,6 +209,7 @@ Use the following JSON schema:
 - Avoid stiff templates such as "Turn this football moment into..." unless the sentence has a genuinely fresh twist.
 - Do not sound like a press release, app onboarding text, or literal translation.
 - AIGC Prompt: Must have vivid, specific imagery that produces viral-worthy lyrics.
+- AIGC Prompt: Do not set a fixed total song duration or duration range.
 - Hashtags: Layer 1 (brand) + Layer 2 (event) + Layer 3 (country) + Layer 4 (player meme) + Layer 5 (scenario)
 
 ## Style Anchors

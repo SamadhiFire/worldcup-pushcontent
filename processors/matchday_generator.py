@@ -405,7 +405,7 @@ Use this JSON schema and return JSON only:
                 "must_avoid": ["profanity", "slurs", "direct harassment", "unsupported factual claims"],
             },
             "production": {
-                "length_seconds": [60, 90],
+                "duration_policy": "no fixed duration; let the music model decide the full song length",
                 "energy_curve": "start hot, lift at the chorus by 15 seconds, finish with one replayable chant",
                 "mix_style": "clean, loud, mobile-first, punchy low end",
                 "hook_strength": "high",

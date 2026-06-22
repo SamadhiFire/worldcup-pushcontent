@@ -105,6 +105,13 @@ TEAM_EN_ALIASES = {
 TEAM_CODE_PATTERN = re.compile(r"\b(" + "|".join(sorted(TEAM_CODE_TO_EN.keys(), key=len, reverse=True)) + r")\b")
 CJK_PATTERN = re.compile(r"[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
 JSON_SYMBOL_PATTERN = re.compile(r"[{}\[\]\"]+")
+_DURATION_NUMBER = r"(?:\d+\s*(?:(?:-|\N{EN DASH}|\N{EM DASH})|to)\s*\d+|\d+)"
+_DURATION_UNIT = r"\s*-?\s*(?:second|seconds|sec|secs|minute|minutes|min|mins)"
+TOTAL_DURATION_PATTERN = re.compile(
+    rf"\b{_DURATION_NUMBER}{_DURATION_UNIT}\s+(?:[a-z&/-]+\s+){{0,8}}(?:anthem|song|track|ballad|music|piece)\b"
+    rf"|\b(?:create|make|generate|produce|compose)\s+(?:a|an)\s+{_DURATION_NUMBER}{_DURATION_UNIT}\b",
+    re.I,
+)
 
 
 class MusicPromptGenerator:
@@ -146,7 +153,11 @@ class MusicPromptGenerator:
             )
 
         fallback = self._fallback_prompt(event_ctx, content, match_display)
-        if last_payload.get("music_prompt") and not CJK_PATTERN.search(last_payload["music_prompt"]):
+        if (
+            last_payload.get("music_prompt")
+            and not CJK_PATTERN.search(last_payload["music_prompt"])
+            and not TOTAL_DURATION_PATTERN.search(last_payload["music_prompt"])
+        ):
             fallback["music_prompt"] = self._truncate_words(last_payload["music_prompt"], 90)
         if last_payload.get("negative_prompt") and not CJK_PATTERN.search(last_payload["negative_prompt"]):
             fallback["negative_prompt"] = self._truncate_words(last_payload["negative_prompt"], 45)
@@ -200,6 +211,7 @@ The final music prompt will be stored in a Feishu/Bitable text column. It must b
 - Use full English team names like "Spain vs Saudi Arabia"; never use team codes like ESP or KSA.
 - Do not use Chinese or any non-English text.
 - Do not mention "push copy", "mobile-first", "social-native", JSON, Feishu, Bitable, or internal workflow terms.
+- Do not specify a total track duration or duration range like "60-90 second"; let the music model choose the length.
 - Make the prompt specific to the match, trigger, fan emotion, scenario, and social context.
 - Guide genre, mood, instrumentation, vocal style, lyrical angle, and energy curve.
 - Do not invent facts, scores, injuries, scandals, winners, or player actions that are not provided.
@@ -225,10 +237,25 @@ Return exactly:
             ("Lyrics", prompt.get("lyrics")),
             ("Production", prompt.get("production")),
         ):
-            compact = self._compact_value(value)
+            compact = self._production_reference(value) if label == "Production" else self._compact_value(value)
             if compact:
                 pieces.append(f"- {label}: {compact}")
         return "\n".join(pieces[:7]) or "No structured music reference provided."
+
+    def _production_reference(self, value: Any) -> str:
+        if not isinstance(value, dict):
+            return self._compact_value(value)
+
+        sanitized = {
+            key: item
+            for key, item in value.items()
+            if key not in {"length_seconds", "duration_seconds", "duration_range"}
+        }
+        sanitized.setdefault(
+            "duration_policy",
+            "no fixed total duration; let the music model choose the length",
+        )
+        return self._compact_value(sanitized)
 
     def _compact_value(self, value: Any) -> str:
         if isinstance(value, dict):
@@ -293,6 +320,8 @@ Return exactly:
             issues.append("music_prompt is over 90 words")
         if len(negative.split()) > 45:
             issues.append("negative_prompt is over 45 words")
+        if TOTAL_DURATION_PATTERN.search(music):
+            issues.append("music_prompt specifies a fixed total duration")
         if CJK_PATTERN.search(music) or CJK_PATTERN.search(negative):
             issues.append("output contains non-English CJK characters")
         if any(symbol in music + negative for symbol in "{}[]"):
